@@ -1,0 +1,8 @@
+/.venv
+/temp/*
+*.txt
+*.webm
+*.mp4
+!requirements.txt
+output/*
+.vscode/*
