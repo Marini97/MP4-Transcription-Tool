@@ -102,6 +102,7 @@ def transcribe_audio(file_path_mp3, video_name):
     # Transcribe with language detection and translation
     result = model.transcribe(
         file_path_mp3, 
+        verbose=True,  # Print progress to console
         language="it",  # Specify Italian as primary language
         task="transcribe",  # or "translate" if you want English output
         fp16=False  # Disable FP16 for compatibility

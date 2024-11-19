@@ -17,7 +17,6 @@ This Python script provides a transcription tool that converts MP4 video files t
 ### Software Requirements
 - Python 3.10+
 - FFmpeg
-- Whisper (OpenAI)
 
 ## 🚀 Installation
 
