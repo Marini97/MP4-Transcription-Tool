@@ -97,7 +97,7 @@ def extract_audio_from_mp4(input_file):
 
 def transcribe_audio(file_path_mp3, video_name):
     # Load the Whisper model with better language detection
-    model = whisper.load_model("medium")
+    model = whisper.load_model("turbo", device="cuda")
     
     # Transcribe with language detection and translation
     result = model.transcribe(

@@ -1,1 +1,2 @@
 openai_whisper==20240930
+setuptools-rust==1.10.2
