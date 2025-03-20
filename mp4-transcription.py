@@ -2,13 +2,17 @@
 import whisper
 from pyannote.audio import Pipeline
 import torch
-import textwrap
+from tqdm import tqdm
 import os
 import glob
 import re
 import subprocess
 import sys
 from shutil import which
+from dotenv import load_dotenv
+
+load_dotenv()
+HUGGINGFACE_TOKEN = os.getenv('HUGGINGFACE_TOKEN')
 
 # create temp directory
 if not os.path.exists("temp"):
@@ -101,6 +105,7 @@ def transcribe_audio(file_path_mp3, video_name):
     # Load the Whisper model with better language detection
     if torch.cuda.is_available():
         device = "cuda"
+        print("GPU available. Using GPU for faster processing.")
     else:
         device = "cpu"
     model = whisper.load_model("turbo", device=device)
@@ -114,18 +119,39 @@ def transcribe_audio(file_path_mp3, video_name):
         fp16=False  # Disable FP16 for compatibility
     )
     del model
+    
+    # Sanitize video name for filenames
+    safe_video_name = re.sub(r"[\W_]+", "_", video_name)
+    output_dir = r"output"
+
+    # Save the raw transcription to a file
+    file_name = f"{safe_video_name}_transcription.txt"
+    file_path = os.path.join(output_dir, file_name)
+
+    # Format the transcription with timestamps
+    formatted_transcription = []
+    for segment in result['segments']:
+        start_time = format_timestamp(segment['start'])
+        formatted_transcription.append(f"[{start_time}] {segment['text'].strip()}")
+
+    try:
+        with open(file_path, "w", encoding="utf-8") as file:
+            file.write("--- Transcription with Timestamps ---\n\n")
+            # Write timestamped version
+            file.write("\n".join(formatted_transcription))
+        print(f"Raw transcription saved to: {file_path}")
+    except Exception as e:
+        print(f"Error saving transcription: {e}")
 
     # Perform speaker diarization
-    diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization")
-    diarization = diarization_pipeline(file_path_mp3)
-
+    diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1", use_auth_token=HUGGINGFACE_TOKEN)
+    diarization = diarization_pipeline(file_path_mp3, num_speakers=2)
+    
     # Map transcription segments to speakers
     speaker_segments = []
     print("\nTranscription with Speaker Information:")
-    print(result['segments'])
-    for segment in result['segments']:
+    for segment in tqdm(result['segments']):
         start_time = segment['start']
-        end_time = segment['end']
         text = segment['text'].strip()
 
         # Find the speaker for this segment
@@ -143,8 +169,6 @@ def transcribe_audio(file_path_mp3, video_name):
     transcription_with_speakers = "\n".join(speaker_segments)
 
     # Save the transcription to a file
-    video_name = re.sub(r"[\W_]+", " ", video_name)
-    output_dir = r"output"
     file_name = f"{video_name}_transcription_with_speakers.txt"
     file_path = os.path.join(output_dir, file_name)
 
