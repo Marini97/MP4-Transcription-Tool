@@ -45,8 +45,8 @@ sudo apt-get install ffmpeg
 
 ### 3. Create Virtual Environment (Optional but Recommended)
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+python -m venv .venv
+source .venv/bin/activate  # On Windows use `.venv\Scripts\activate`
 ```
 
 ### 4. Install Python Dependencies

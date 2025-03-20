@@ -1,5 +1,7 @@
 # whisper
 import whisper
+from pyannote.audio import Pipeline
+import torch
 import textwrap
 import os
 import glob
@@ -97,7 +99,11 @@ def extract_audio_from_mp4(input_file):
 
 def transcribe_audio(file_path_mp3, video_name):
     # Load the Whisper model with better language detection
-    model = whisper.load_model("turbo", device="cuda")
+    if torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
+    model = whisper.load_model("turbo", device=device)
     
     # Transcribe with language detection and translation
     result = model.transcribe(
@@ -109,57 +115,43 @@ def transcribe_audio(file_path_mp3, video_name):
     )
     del model
 
-    # Process the transcription with timestamps
-    transcription_with_timestamps = []
+    # Perform speaker diarization
+    diarization_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization")
+    diarization = diarization_pipeline(file_path_mp3)
+
+    # Map transcription segments to speakers
+    speaker_segments = []
+    print("\nTranscription with Speaker Information:")
+    print(result['segments'])
     for segment in result['segments']:
-        start_time = format_timestamp(segment['start'])
+        start_time = segment['start']
+        end_time = segment['end']
         text = segment['text'].strip()
-        
-        # Basic language and formatting improvements
-        # Remove excessive whitespace
-        text = re.sub(r'\s+', ' ', text)
-        
-        # Capitalize first letter of each segment
-        text = text.capitalize()
-        
-        transcription_with_timestamps.append(f"\n\n[{start_time}] {text}")
 
-    # Combine into paragraphs
-    paragraphs = []
-    paragraph = []
-    for line in transcription_with_timestamps:
-        paragraph.append(line)
-        if len(paragraph) == 4:
-            paragraphs.append("\n\n".join(paragraph))
-            paragraph = []
+        # Find the speaker for this segment
+        speaker = "Unknown"
+        for turn, _, speaker_label in diarization.itertracks(yield_label=True):
+            if turn.start <= start_time <= turn.end:
+                speaker = speaker_label
+                break
 
-    if paragraph:
-        paragraphs.append("".join(paragraph))
+        # Format the segment with speaker information
+        start_timestamp = format_timestamp(start_time)
+        speaker_segments.append(f"[{start_timestamp}] Speaker {speaker}: {text}")
 
-    # Formatting
-    formatted = "".join(paragraphs)
+    # Combine all segments
+    transcription_with_speakers = "\n".join(speaker_segments)
 
-    # Word-wrapping
-    wrapped = " ".join(
-        [" \n" + textwrap.fill(p, width=100) for p in formatted.split("\n\n")]
-    )
-
-    # Add an extra newline between paragraphs
-    wrapped_with_extra_newline = "".join([wrapped, ""])
-
-    # Sanitizing filename
+    # Save the transcription to a file
     video_name = re.sub(r"[\W_]+", " ", video_name)
-
-    # Establishing output directory and file name
     output_dir = r"output"
-    file_name = f"{video_name}_transcription.txt"
+    file_name = f"{video_name}_transcription_with_speakers.txt"
     file_path = os.path.join(output_dir, file_name)
 
-    # Writing output to file
     with open(file_path, "w", encoding="utf-8") as file:
-        file.write(wrapped_with_extra_newline)
-    
-    return transcription_with_timestamps
+        file.write(transcription_with_speakers)
+
+    return speaker_segments
 
 if __name__ == "__main__":
     print("MP4 to Text Transcription Tool")
