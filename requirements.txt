@@ -1,4 +1,9 @@
-openai_whisper==20240930
-setuptools-rust==1.10.2
+# Core dependencies
+openai-whisper==20240930
 pyannote.audio==3.3.2
+torch>=2.0.0
+tqdm>=4.66.0
+
+# Environment and utilities
 dotenv==0.9.9
+setuptools-rust==1.10.2
